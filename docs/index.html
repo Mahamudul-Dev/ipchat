@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPChat - Zero-Knowledge Terminal E2EE Chat</title>
+  <meta name="description" content="Secure, anonymous, zero-knowledge terminal E2EE group chat over stealth UDP port 443.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%230a0d14%22/><text y=%2268%22 x=%2212%22 font-family=%22monospace%22 font-weight=%22900%22 font-size=%2260%22 fill=%22%2338bdf8%22>&gt;_</text></svg>">
+  <style>
+    :root {
+      --bg: #0a0d14;
+      --card-bg: #111622;
+      --card-border: #1e2638;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --accent: #10b981;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --code-bg: #06080e;
+      --gold: #fbbf24;
+      --pink: #f472b6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Background glow effect */
+    .glow-bg {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1000px;
+      height: 450px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, rgba(10, 13, 20, 0) 70%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    header {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .brand:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+    }
+
+    .brand-ascii {
+      font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+      font-size: 8px;
+      line-height: 1.05;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: var(--primary);
+      background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      user-select: none;
+    }
+
+    .brand-version {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 8px;
+      color: #64748b;
+      -webkit-text-fill-color: #64748b;
+      font-weight: 600;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+
+    .btn-github {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-github:hover {
+      background: #334155;
+      border-color: var(--primary);
+    }
+
+    /* Hero Section */
+    .hero {
+      max-width: 900px;
+      margin: 40px auto 30px;
+      padding: 0 20px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 32px;
+    }
+
+    /* Terminal Window */
+    .terminal-card {
+      max-width: 820px;
+      margin: 30px auto 60px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      text-align: left;
+    }
+
+    .terminal-header {
+      background: #0f141f;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .circle {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .c-red { background: #ef4444; }
+    .c-yellow { background: #f59e0b; }
+    .c-green { background: #10b981; }
+
+    .terminal-title {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-family: monospace;
+      margin-left: 8px;
+    }
+
+    .terminal-body {
+      padding: 20px;
+      font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .terminal-body .primary { color: var(--primary); }
+    .terminal-body .green { color: var(--accent); }
+    .terminal-body .dim { color: #64748b; }
+    .terminal-body .pink { color: var(--pink); }
+    .terminal-body .bold { font-weight: bold; }
+
+    /* Features Grid */
+    .section-title {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 70px 0 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .section-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+
+    .grid-3 {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    .feature-card p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    /* Installation Tabs */
+    .install-box {
+      max-width: 820px;
+      margin: 30px auto;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .tab-bar {
+      display: flex;
+      background: #0d121c;
+      border-bottom: 1px solid var(--card-border);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 14px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 24px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      margin-top: 10px;
+    }
+
+    .code-text {
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .btn-copy {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-copy:hover {
+      background: #334155;
+      color: var(--primary);
+    }
+
+    /* Donations Section */
+    .donate-card {
+      max-width: 820px;
+      margin: 30px auto;
+      background: linear-gradient(145deg, #111622 0%, #151d2e 100%);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 16px;
+      padding: 32px 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .donate-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.4rem;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+
+    .donate-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+    }
+
+    .crypto-item {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .crypto-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .crypto-coin {
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .coin-badge {
+      font-size: 0.72rem;
+      background: #1e293b;
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: var(--text-muted);
+    }
+
+    .crypto-address {
+      font-family: monospace;
+      font-size: 0.88rem;
+      color: var(--primary);
+      word-break: break-all;
+      background: #0d121d;
+      padding: 10px 14px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    footer {
+      max-width: 1100px;
+      margin: 80px auto 40px;
+      padding: 24px 20px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--primary);
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.1rem; }
+      .terminal-body { font-size: 0.75rem; }
+      .brand-ascii { font-size: 6px; }
+      header { flex-direction: column; gap: 16px; text-align: center; }
+      .nav-links { flex-wrap: wrap; justify-content: center; }
+      footer { flex-direction: column; gap: 12px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-bg"></div>
+
+  <!-- Navbar -->
+  <header>
+    <a href="#" class="brand">
+      <pre class="brand-ascii">    ____  ____  ________          __ 
+   /  _/ / __ \/ ____/ /_  ____ _/ /_
+   / /  / /_/ / /   / __ \/ __ `/ __/
+ _/ /  / ____/ /___/ / / / /_/ / /_  
+/___/ /_/    \____/_/ /_/\__,_/\__/ <span class="brand-version">v0.1.0</span></pre>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#usecases">Use Cases</a>
+      <a href="#install">Install</a>
+      <a href="#selfhost">Self-Hosting</a>
+      <a href="#donate">Donate</a>
+      <a href="https://github.com/Mahamudul-Dev/ipchat" target="_blank" class="btn-github">
+        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="badge">🛡️ Zero-Knowledge E2EE Tunnel</div>
+    <h1>Invisible Terminal Chat<br><span>Without Servers Storing A Single Byte</span></h1>
+    <p>
+      An ephemeral, military-grade end-to-end encrypted terminal chat application. Routes blind binary blobs over stealth UDP Port 443 to bypass firewalls and strict NAT without VPNs or port forwarding.
+    </p>
+
+    <!-- Interactive Terminal Preview -->
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="circle c-red"></div>
+        <div class="circle c-yellow"></div>
+        <div class="circle c-green"></div>
+        <span class="terminal-title">bash - ipchat</span>
+      </div>
+      <div class="terminal-body">
+        <pre class="primary">
+    ____  ____  ________          __ 
+   /  _/ / __ \/ ____/ /_  ____ _/ /_
+   / /  / /_/ / /   / __ \/ __ `/ __/
+ _/ /  / ____/ /___/ / / / /_/ / /_  
+/___/ /_/    \____/_/ /_/\__,_/\__/  <span class="dim">v0.1.0 (E2EE)</span></pre>
+        <div class="dim" style="font-style: italic; margin-bottom: 12px;">Secure Zero-Knowledge Ephemeral Group Chat</div>
+        <div><span class="green">✔</span> Connected to secure room! Listening for messages...</div>
+        <div class="dim">──────────────────────────────────────────────────</div>
+        <div><span class="bold pink">@CyberGhost</span> <span class="dim">[14:02]</span> ❯ Did you verify the encrypted payload?</div>
+        <div><span class="bold primary">@You</span> <span class="dim">[14:03]</span> ❯ AES-256-GCM authenticated. Relay has zero logs.</div>
+        <div style="margin-top: 8px;"><span class="bold primary">@You</span> <span class="dim">[14:03]</span> ❯ <span style="animation: blink 1s infinite;">_</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <h2 class="section-title">Built for Absolute Privacy</h2>
+    <p class="section-subtitle">No accounts, no email requirements, and zero traces on disk.</p>
+
+    <div class="grid-3">
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h3>Military-Grade E2EE</h3>
+        <p>Messages are encrypted and authenticated locally with AES-256-GCM. Keys are derived from your room passphrase via SHA-256 and never touch the network.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">👁️‍🗨️</div>
+        <h3>Zero-Knowledge Architecture</h3>
+        <p>The relay server is blind. It only sees a truncated one-way hash of the room key and blindly forwards raw ciphertexts without reading usernames or messages.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3>Stealth Traffic (UDP 443)</h3>
+        <p>Chat packets run over Port 443, perfectly mimicking standard HTTP/3 (QUIC) web traffic to defeat strict corporate firewalls and ISP inspection.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>NAT Hole Punching & Keep-Alive</h3>
+        <p>Includes background UDP heartbeat pings every 20 seconds, ensuring your router's NAT hole stays open without dropping packets during quiet spells.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🧼</div>
+        <h3>100% Ephemeral Memory</h3>
+        <p>Nothing is ever written to disk or databases. When you press Ctrl+C, encryption keys and message history vanish permanently from RAM.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🐳</div>
+        <h3>One-Command Docker Relay</h3>
+        <p>Use the official zero-knowledge relay, or spin up your own private forwarder with a single <code>docker run</code> command in seconds.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section id="usecases" style="margin-top: 60px;">
+    <h2 class="section-title">When to Use IPChat</h2>
+    <p class="section-subtitle">When traditional chat apps leave too much metadata behind.</p>
+
+    <div class="grid-3">
+      <div class="feature-card">
+        <div class="feature-icon">🕵️</div>
+        <h3>Whistleblowers & Journalists</h3>
+        <p>Coordinate sensitive communications without creating accounts, giving phone numbers, or leaving audit logs on third-party servers.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">💻</div>
+        <h3>Sysadmins & Developers</h3>
+        <p>Quick terminal-to-terminal collaboration, credential sharing, and troubleshooting directly inside your active shell session.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>Restricted Networks & Censorship</h3>
+        <p>When VPNs, Tor, and standard messaging ports are blocked by school, hotel, or country firewalls, UDP 443 passes through effortlessly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation -->
+  <section id="install" style="margin-top: 60px;">
+    <h2 class="section-title">Install in Seconds</h2>
+    <p class="section-subtitle">Single standalone binaries with zero dependencies.</p>
+
+    <div class="install-box">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab(event, 'tab-linux')">Linux & macOS</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-win')">Windows</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-arch')">Arch / Manjaro</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-deb')">Debian / Ubuntu</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-docker')">Docker (Relay)</button>
+      </div>
+
+      <div id="tab-linux" class="tab-content active">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Universal one-line installer for Linux and macOS:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-linux">curl -fsSL https://raw.githubusercontent.com/Mahamudul-Dev/ipchat/main/install.sh | bash</span>
+          <button class="btn-copy" onclick="copyCode('code-linux', this)">Copy</button>
+        </div>
+      </div>
+
+      <div id="tab-win" class="tab-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Open PowerShell and run:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-win">irm https://raw.githubusercontent.com/Mahamudul-Dev/ipchat/main/install.ps1 | iex</span>
+          <button class="btn-copy" onclick="copyCode('code-win', this)">Copy</button>
+        </div>
+      </div>
+
+      <div id="tab-arch" class="tab-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Install directly via <code>pacman</code> and <code>makepkg</code>:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-arch">git clone https://github.com/Mahamudul-Dev/ipchat.git && cd ipchat/packaging/aur && makepkg -si</span>
+          <button class="btn-copy" onclick="copyCode('code-arch', this)">Copy</button>
+        </div>
+      </div>
+
+      <div id="tab-deb" class="tab-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Download and install native <code>.deb</code> package:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-deb">wget https://github.com/Mahamudul-Dev/ipchat/releases/latest/download/ipchat_0.1.0_amd64.deb && sudo dpkg -i ipchat_0.1.0_amd64.deb</span>
+          <button class="btn-copy" onclick="copyCode('code-deb', this)">Copy</button>
+        </div>
+      </div>
+
+      <div id="tab-docker" class="tab-content">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Run your own private Zero-Knowledge relay:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-docker">docker run -d --name ipchat-relay --restart unless-stopped -p 443:443/udp ghcr.io/mahamudul-dev/ipchat-relay:latest</span>
+          <button class="btn-copy" onclick="copyCode('code-docker', this)">Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Self-Hosting Guide & VPS Setup -->
+  <section id="selfhost" style="margin-top: 60px;">
+    <h2 class="section-title">Self-Hosting & VPS Setup</h2>
+    <p class="section-subtitle">Deploy your own private Zero-Knowledge relay on any Cloud VPS or home server in 2 minutes.</p>
+
+    <div style="max-width: 900px; margin: 0 auto; padding: 0 20px;">
+      <!-- Step 1: Firewall & DNS -->
+      <div class="feature-card" style="margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span style="background: rgba(56, 189, 248, 0.2); color: var(--primary); padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">STEP 1</span>
+          <h3 style="margin: 0; font-size: 1.2rem;">Prepare Your Server (Firewall & DNS)</h3>
+        </div>
+        <p style="margin-bottom: 12px;">IPChat traffic operates over UDP Port 443 (HTTP/3 QUIC disguise). Open this port in your VPS firewall and point an A record (e.g. <code>relay.yourdomain.com</code>) to your server's IP address:</p>
+        <div class="code-block">
+          <span class="code-text" id="code-fw">sudo ufw allow 443/udp</span>
+          <button class="btn-copy" onclick="copyCode('code-fw', this)">Copy</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Deploy Relay (Docker / Compose / Bare Metal) -->
+      <div class="feature-card" style="margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span style="background: rgba(16, 185, 129, 0.2); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">STEP 2</span>
+          <h3 style="margin: 0; font-size: 1.2rem;">Deploy the Relay Server</h3>
+        </div>
+        <p style="margin-bottom: 14px;">Choose your preferred deployment method:</p>
+
+        <!-- Method A: Docker -->
+        <div style="margin-bottom: 16px;">
+          <h4 style="color: var(--primary); font-size: 0.95rem; margin-bottom: 6px;">Option A: Docker (One-Command Run)</h4>
+          <div class="code-block">
+            <span class="code-text" id="code-vps-docker">docker run -d --name ipchat-relay --restart unless-stopped -p 443:443/udp ghcr.io/mahamudul-dev/ipchat-relay:latest</span>
+            <button class="btn-copy" onclick="copyCode('code-vps-docker', this)">Copy</button>
+          </div>
+        </div>
+
+        <!-- Method B: Docker Compose -->
+        <div style="margin-bottom: 16px;">
+          <h4 style="color: var(--primary); font-size: 0.95rem; margin-bottom: 6px;">Option B: Docker Compose</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Create a <code>docker-compose.yml</code> file:</p>
+          <div class="code-block" style="flex-direction: column; align-items: flex-start;">
+            <pre style="width: 100%; overflow-x: auto; font-family: monospace; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 8px;"><code id="code-vps-compose">services:
+  ipchat-relay:
+    image: ghcr.io/mahamudul-dev/ipchat-relay:latest
+    container_name: ipchat-relay
+    restart: unless-stopped
+    ports:
+      - "443:443/udp"
+    environment:
+      - PORT=443</code></pre>
+            <button class="btn-copy" style="align-self: flex-end;" onclick="copyCode('code-vps-compose', this)">Copy Compose</button>
+          </div>
+          <div class="code-block" style="margin-top: 8px;">
+            <span class="code-text" id="code-vps-up">docker compose up -d</span>
+            <button class="btn-copy" onclick="copyCode('code-vps-up', this)">Copy</button>
+          </div>
+        </div>
+
+        <!-- Method C: Native Dart / VPS (Bare Metal) -->
+        <div>
+          <h4 style="color: var(--primary); font-size: 0.95rem; margin-bottom: 6px;">Option C: Bare Metal (Linux VPS without Docker)</h4>
+          <div class="code-block">
+            <span class="code-text" id="code-vps-bare">git clone https://github.com/Mahamudul-Dev/ipchat.git && cd ipchat && dart compile exe bin/relay.dart -o relay && nohup ./relay > relay.log 2>&1 &</span>
+            <button class="btn-copy" onclick="copyCode('code-vps-bare', this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Configure Clients -->
+      <div class="feature-card">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span style="background: rgba(251, 191, 36, 0.2); color: var(--gold); padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">STEP 3</span>
+          <h3 style="margin: 0; font-size: 1.2rem;">Connect Client to Your Self-Hosted Server</h3>
+        </div>
+        <p style="margin-bottom: 12px;">Tell your client to persistently use your custom relay (saved to <code>~/.config/ipchat/config.json</code>):</p>
+        
+        <div style="margin-bottom: 12px;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Permanently register server:</span>
+          <div class="code-block">
+            <span class="code-text" id="code-cli-set">ipchat set-relay relay.yourdomain.com</span>
+            <button class="btn-copy" onclick="copyCode('code-cli-set', this)">Copy</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Check active configured server:</span>
+          <div class="code-block">
+            <span class="code-text" id="code-cli-get">ipchat get-relay</span>
+            <button class="btn-copy" onclick="copyCode('code-cli-get', this)">Copy</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Reset back to official default relay:</span>
+          <div class="code-block">
+            <span class="code-text" id="code-cli-reset">ipchat reset-relay</span>
+            <button class="btn-copy" onclick="copyCode('code-cli-reset', this)">Copy</button>
+          </div>
+        </div>
+
+        <div>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">One-time session override without saving:</span>
+          <div class="code-block">
+            <span class="code-text" id="code-cli-one">ipchat --relay relay.yourdomain.com --port 443</span>
+            <button class="btn-copy" onclick="copyCode('code-cli-one', this)">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Donations -->
+  <section id="donate" style="margin-top: 60px; padding: 0 20px;">
+    <div class="donate-card">
+      <div class="donate-title">
+        <span>☕ Support Open-Source Privacy</span>
+      </div>
+      <p class="donate-desc">
+        IPChat is 100% free, open-source, and has no investors or trackers. If you appreciate secure, private software, consider supporting the continuous development and hosting of our official public relays.
+      </p>
+
+      <!-- Bitcoin -->
+      <div class="crypto-item">
+        <div class="crypto-header">
+          <div class="crypto-coin">
+            <span style="color: #f7931a;">₿</span> Bitcoin (BTC)
+            <span class="coin-badge">Native SegWit / Taproot</span>
+          </div>
+        </div>
+        <div class="crypto-address">
+          <span id="btc-addr">bc1qh4r33lkc5ec0dfnz6dqw0tw7ja2j4gpm4qd8j6</span>
+          <button class="btn-copy" onclick="copyCode('btc-addr', this)">Copy BTC</button>
+        </div>
+      </div>
+
+      <!-- Tether (USDT TRC-20) -->
+      <div class="crypto-item">
+        <div class="crypto-header">
+          <div class="crypto-coin">
+            <span style="color: #26a17b;">₮</span> Tether (USDT)
+            <span class="coin-badge">TRC-20 (Tron Network)</span>
+          </div>
+        </div>
+        <div class="crypto-address">
+          <span id="usdt-trc-addr">TYzy3m4PbTTLa5NDbFgFyx2zzHSUsgn7oP</span>
+          <button class="btn-copy" onclick="copyCode('usdt-trc-addr', this)">Copy USDT</button>
+        </div>
+      </div>
+
+      <!-- Tether (USDT BEP-20) -->
+      <div class="crypto-item">
+        <div class="crypto-header">
+          <div class="crypto-coin">
+            <span style="color: #627eea;">₮</span> Tether (USDT)
+            <span class="coin-badge">BEP-20</span>
+          </div>
+        </div>
+        <div class="crypto-address">
+          <span id="usdt-erc-addr">0x6D43e0c450f1BD2AdfA22456aaD0A35aE325ed0F</span>
+          <button class="btn-copy" onclick="copyCode('usdt-erc-addr', this)">Copy Address</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div>
+      © 2026 <strong>IPChat</strong>. Released under the <a href="https://github.com/Mahamudul-Dev/ipchat/blob/main/LICENSE" target="_blank">MIT License</a>.
+    </div>
+    <div>
+      Crafted with passion for open-source privacy.
+    </div>
+  </footer>
+
+  <script>
+    function switchTab(evt, tabId) {
+      const contents = document.querySelectorAll('.tab-content');
+      contents.forEach(c => c.classList.remove('active'));
+
+      const btns = document.querySelectorAll('.tab-btn');
+      btns.forEach(b => b.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      evt.currentTarget.classList.add('active');
+    }
+
+    function copyCode(elementId, btnElement) {
+      const text = document.getElementById(elementId).innerText.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = 'Copied!';
+        btnElement.style.color = 'var(--accent)';
+        btnElement.style.borderColor = 'var(--accent)';
+        setTimeout(() => {
+          btnElement.innerText = originalText;
+          btnElement.style.color = '';
+          btnElement.style.borderColor = '';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

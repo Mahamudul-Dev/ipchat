@@ -1,9 +1,24 @@
 # IPChat
 
 <div align="center">
-  <img src="assets/logo.jpg" alt="IPChat Logo" width="180"/>
-  <p><strong>A secure, anonymous, and ephemeral terminal-based E2EE group chat application.</strong></p>
-  <p>Operates over a custom Zero-Knowledge UDP relay on Port 443 (HTTP/3 QUIC disguise) to bypass NAT and strict firewalls without port forwarding, third-party accounts, or VPNs.</p>
+
+```text
+    ____  ____  ________          __ 
+   /  _/ / __ \/ ____/ /_  ____ _/ /_
+   / /  / /_/ / /   / __ \/ __ `/ __/
+ _/ /  / ____/ /___/ / / / /_/ / /_  
+/___/ /_/    \____/_/ /_/\__,_/\__/   v0.1.0 (E2EE)
+```
+
+<p><strong>A secure, anonymous, and ephemeral terminal-based E2EE group chat application.</strong></p>
+<p>Operates over a custom Zero-Knowledge UDP relay on Port 443 (HTTP/3 QUIC disguise) to bypass NAT and strict firewalls without port forwarding, third-party accounts, or VPNs.</p>
+
+<p>
+  <a href="https://github.com/Mahamudul-Dev/ipchat/releases"><img src="https://img.shields.io/github/v/release/Mahamudul-Dev/ipchat?style=flat-square&color=38bdf8" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
+  <a href="https://mahamudul-dev.github.io/ipchat/"><img src="https://img.shields.io/badge/website-online-10b981?style=flat-square" alt="Website"></a>
+</p>
+
 </div>
 
 ---
@@ -195,6 +210,16 @@ Press `Ctrl + C` at any time to sever connection, notify the relay, erase the en
    $$\text{Transmission} = \text{Base64}(\text{IV}_{16}) + \text{Base64}(\text{AES-256-GCM}(\text{Data}))$$
 4. **Relay Inactivity Pruning:**
    The relay maintains an active memory table. Disconnected clients or clients inactive for over 60 seconds are automatically evicted.
+
+---
+
+## ☕ Support the Project
+
+If you appreciate IPChat and want to support the continuous development and hosting of public relays, you can donate via cryptocurrency:
+
+* **Bitcoin (BTC):** `bc1qh4r33lkc5ec0dfnz6dqw0tw7ja2j4gpm4qd8j6`
+* **USDT (TRC-20):** `TYzy3m4PbTTLa5NDbFgFyx2zzHSUsgn7oP`
+* **USDT (BEP-20):** `0x6D43e0c450f1BD2AdfA22456aaD0A35aE325ed0F`
 
 ---
 
