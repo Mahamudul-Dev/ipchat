@@ -4,6 +4,7 @@
 .idea
 .vscode
 build/
-relay
-ipchat
+dist/
+/relay
+/ipchat
 *.log

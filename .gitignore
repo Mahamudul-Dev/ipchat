@@ -2,14 +2,15 @@
 .dart_tool/
 .packages
 
-# Build artifacts & executables
-ipchat
-relay
+# Build artifacts & compiled binaries at root
+/ipchat
+/relay
 *.exe
 *.deb
 *.tar.gz
 *.zip
 build/
+dist/
 
 # Logs & temp files
 *.log
