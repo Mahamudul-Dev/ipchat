@@ -1,0 +1,35 @@
+name: ipchat
+base: core22
+version: '0.1.0'
+summary: Secure, anonymous, zero-knowledge terminal E2EE group chat
+description: |
+  IPChat is an ephemeral, end-to-end encrypted terminal group chat
+  tool that communicates over UDP port 443 with a zero-knowledge architecture.
+  No database, no logging, and zero-configuration required.
+
+grade: stable
+confinement: strict
+
+apps:
+  ipchat:
+    command: bin/ipchat
+    plugs:
+      - network
+      - network-bind
+
+parts:
+  ipchat:
+    plugin: nil
+    source: .
+    build-packages:
+      - curl
+      - unzip
+    override-build: |
+      # Download Dart SDK
+      curl -fsSL https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-x64-release.zip -o dart.zip
+      unzip -q dart.zip
+      export PATH="$PWD/dart-sdk/bin:$PATH"
+
+      # Fetch packages and compile native binary
+      dart pub get
+      dart compile exe bin/ipchat.dart -o $SNAPCRAFT_PART_INSTALL/bin/ipchat

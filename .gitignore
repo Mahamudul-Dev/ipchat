@@ -1,3 +1,16 @@
-# https://dart.dev/tools/private-files
-# Created by `dart pub`
+# Dart tools & packages
 .dart_tool/
+.packages
+
+# Build artifacts & executables
+ipchat
+relay
+*.exe
+*.deb
+*.tar.gz
+*.zip
+build/
+
+# Logs & temp files
+*.log
+.DS_Store

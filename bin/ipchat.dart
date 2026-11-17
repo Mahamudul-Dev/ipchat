@@ -1,173 +1,185 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
-import 'package:encrypt/encrypt.dart' as enc;
+import 'package:args/args.dart';
+import 'package:ipchat/ipchat.dart';
 
-const String vpsIp = '157.173.115.123';
-const int vpsPort = 443;
+void main(List<String> args) async {
+  final parser = ArgParser()
+    ..addOption('relay', abbr: 'r', help: 'Relay server IP or domain for this session.')
+    ..addOption('port', abbr: 'p', help: 'Relay UDP port for this session.')
+    ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage instructions.')
+    ..addFlag('version', abbr: 'v', negatable: false, help: 'Show IPChat version.');
 
-// --- Advanced ANSI Styling ---
-const String reset = '\x1B[0m';
-const String bold = '\x1B[1m';
-const String dim = '\x1B[2m';
-const String italic = '\x1B[3m';
-const String clearScreen = '\x1B[2J\x1B[H';
-
-// 256-Color Palette
-const String primary = '\x1B[38;5;39m'; // Deep Sky Blue
-const String success = '\x1B[38;5;46m'; // Neon Green
-const String warning = '\x1B[38;5;220m'; // Gold
-const String error = '\x1B[38;5;196m'; // Red
-const String system = '\x1B[38;5;245m'; // Gray
-const String friendCol = '\x1B[38;5;213m'; // Neon Pink
-
-// Helper to get current time (e.g., 15:14)
-String get _time {
-  final now = DateTime.now();
-  return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-}
-
-// Dynamic Input Prompt
-void _showPrompt() {
-  stdout.write('$bold$primary@You$reset $dim[$_time]$reset ❯ ');
-}
-
-void main() async {
-  // Clear the terminal and print the banner
-  stdout.write(clearScreen);
-  print(
-    r'''
-$primary
-    ____  ____  ________          __ 
-   /  _/ / __ \/ ____/ /_  ____ _/ /_
-   / /  / /_/ / /   / __ \/ __ `/ __/
- _/ /  / ____/ /___/ / / / /_/ / /_  
-/___/ /_/    \____/_/ /_/\__,_/\__/  $dim v3.0 (E2EE)$reset
-'''
-        .replaceAll('\$primary', primary)
-        .replaceAll('\$dim', dim)
-        .replaceAll('\$reset', reset),
-  );
-
-  print('$system$italic Secure Zero-Knowledge P2P Tunnel $reset\n');
-
-  // 1. Username Assignment
-  stdout.write(
-    '$bold$primary? $reset$bold Enter Username $system(Leave blank for random)$reset: ',
-  );
-  String username = stdin.readLineSync()?.trim() ?? '';
-  if (username.isEmpty) {
-    username = 'Anon_${Random().nextInt(9999)}';
-  }
-
-  // 2. Room & Crypto Setup
-  stdout.write('$bold$primary? $reset$bold Enter Secret Room Password$reset: ');
-  stdin.echoMode = false;
-  final password = stdin.readLineSync()?.trim() ?? '';
-  stdin.echoMode = true;
-  print('\n');
-
-  if (password.length < 6) {
-    print('\n$error✖ Password too short. Use at least 6 characters.$reset');
+  ArgResults parsedArgs;
+  try {
+    parsedArgs = parser.parse(args);
+  } catch (e) {
+    TerminalUI.printError('✖ Error: ${e.toString()}');
+    print('Run ${TerminalTheme.bold}ipchat --help${TerminalTheme.reset} for usage details.');
     exit(1);
   }
 
-  final keyBytes = sha256.convert(utf8.encode(password)).bytes;
-  final key = enc.Key(Uint8List.fromList(keyBytes));
-  final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm));
-  final roomId = sha256.convert(keyBytes).toString().substring(0, 16);
-
-  final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-  bool isConnected = false;
-
-  ProcessSignal.sigint.watch().listen((signal) {
-    print('\n\n$warning⚠ Erasing session and closing port... Bye!$reset');
-    socket.close();
+  if (parsedArgs['help'] as bool) {
+    _printHelp(parser);
     exit(0);
-  });
+  }
 
-  print('$system⚙ Establishing encrypted tunnel to relay...$reset');
+  if (parsedArgs['version'] as bool) {
+    print('${TerminalTheme.bold}IPChat${TerminalTheme.reset} version ${ConfigManager.appVersion}');
+    exit(0);
+  }
 
-  // 3. Connect to Relay
-  Timer.periodic(Duration(seconds: 1), (timer) {
-    if (!isConnected) {
-      socket.send(
-        utf8.encode('[JOIN] $roomId'),
-        InternetAddress(vpsIp),
-        vpsPort,
+  // Handle Subcommands: set-relay, get-relay, reset-relay
+  final rest = parsedArgs.rest;
+  if (rest.isNotEmpty) {
+    _handleSubcommand(rest);
+    return;
+  }
+
+  // Determine active relay endpoint:
+  // Precedence: 1. CLI flag -> 2. Saved Config -> 3. Built-in default
+  String activeHost = '';
+  int activePort = ConfigManager.defaultRelayPort;
+
+  if (parsedArgs['relay'] != null) {
+    final (h, p) = ConfigManager.parseHostAndPort(
+      parsedArgs['relay'] as String,
+      ConfigManager.defaultRelayPort,
+    );
+    activeHost = h;
+    activePort = p;
+  } else {
+    final customRelay = ConfigManager.getCustomRelay();
+    if (customRelay != null) {
+      activeHost = customRelay.$1;
+      activePort = customRelay.$2;
+    } else if (ConfigManager.defaultRelayHost.isNotEmpty) {
+      activeHost = ConfigManager.defaultRelayHost;
+      activePort = ConfigManager.defaultRelayPort;
+    }
+  }
+
+  if (parsedArgs['port'] != null) {
+    final parsedPort = int.tryParse(parsedArgs['port'] as String);
+    if (parsedPort != null && parsedPort > 0 && parsedPort <= 65535) {
+      activePort = parsedPort;
+    }
+  }
+
+  // Render header & banner
+  TerminalBanner.printHeader(ConfigManager.appVersion);
+
+  // Fallback prompt if no host is configured at all
+  if (activeHost.isEmpty) {
+    stdout.write(
+      '${TerminalTheme.bold}${TerminalTheme.primary}? ${TerminalTheme.reset}'
+      '${TerminalTheme.bold}Enter Relay Server IP or Domain${TerminalTheme.reset}: ',
+    );
+    activeHost = stdin.readLineSync()?.trim() ?? '';
+    if (activeHost.isEmpty) {
+      TerminalUI.printError('✖ Relay server cannot be empty.');
+      exit(1);
+    }
+    final (h, p) = ConfigManager.parseHostAndPort(activeHost, ConfigManager.defaultRelayPort);
+    activeHost = h;
+    activePort = p;
+  }
+
+  // Prompt user details
+  final username = TerminalUI.promptUsername();
+  final password = TerminalUI.promptPassword();
+
+  ChatCrypto crypto;
+  try {
+    crypto = ChatCrypto.fromPassword(password);
+  } catch (e) {
+    TerminalUI.printError(e.toString());
+    exit(1);
+  }
+
+  // Start chat client tunnel
+  final client = ChatClient(
+    crypto: crypto,
+    username: username,
+    relayHost: activeHost,
+    relayPort: activePort,
+  );
+
+  await client.start();
+}
+
+void _handleSubcommand(List<String> rest) {
+  final command = rest.first.toLowerCase();
+
+  if (command == 'set-relay') {
+    if (rest.length < 2) {
+      TerminalUI.printError('✖ Error: Please provide a server address.');
+      print('Example: ${TerminalTheme.bold}ipchat set-relay my-relay.example.com${TerminalTheme.reset}');
+      print('         ${TerminalTheme.bold}ipchat set-relay 1.2.3.4:443${TerminalTheme.reset}');
+      exit(1);
+    }
+    final (host, port) = ConfigManager.setRelay(rest[1]);
+    TerminalUI.printSuccess('✔ Registered custom relay server: ${TerminalTheme.bold}$host:$port');
+    TerminalUI.printSystem('Saved to: ${ConfigManager.getConfigFile().path}');
+    exit(0);
+  }
+
+  if (command == 'get-relay') {
+    final custom = ConfigManager.getCustomRelay();
+    if (custom != null) {
+      print(
+        '${TerminalTheme.bold}Custom Relay:${TerminalTheme.reset} ${custom.$1}:${custom.$2} '
+        '${TerminalTheme.system}(from ${ConfigManager.getConfigFile().path})${TerminalTheme.reset}',
       );
     } else {
-      timer.cancel();
+      print(
+        '${TerminalTheme.bold}Default Relay:${TerminalTheme.reset} '
+        '${ConfigManager.defaultRelayHost}:${ConfigManager.defaultRelayPort} '
+        '${TerminalTheme.system}(Official)${TerminalTheme.reset}',
+      );
     }
-  });
+    exit(0);
+  }
 
-  // 4. Handle Incoming Group Traffic
-  socket.listen((RawSocketEvent event) {
-    if (event == RawSocketEvent.read) {
-      final datagram = socket.receive();
-      if (datagram == null) return;
+  if (command == 'reset-relay') {
+    ConfigManager.resetRelay();
+    TerminalUI.printSuccess(
+      '✔ Reset relay configuration to official default: '
+      '${TerminalTheme.bold}${ConfigManager.defaultRelayHost}:${ConfigManager.defaultRelayPort}',
+    );
+    exit(0);
+  }
 
-      final payload = utf8.decode(datagram.data).trim();
+  TerminalUI.printError('✖ Unknown command: $command');
+  print('Run ${TerminalTheme.bold}ipchat --help${TerminalTheme.reset} for usage details.');
+  exit(1);
+}
 
-      if (payload == '[JOINED]') {
-        if (!isConnected) {
-          isConnected = true;
-          print(
-            '$success✔ Connected to secure room! Listening for messages...$reset\n',
-          );
-          print('$system${'─' * 50}$reset\n');
-          _showPrompt();
-        }
-      } else if (isConnected) {
-        try {
-          // Decrypt payload
-          final iv = enc.IV.fromBase64(payload.substring(0, 24));
-          final encryptedText = enc.Encrypted.fromBase64(payload.substring(24));
-          final decrypted = encrypter.decrypt(encryptedText, iv: iv);
+void _printHelp(ArgParser parser) {
+  print('''
+${TerminalTheme.bold}IPChat${TerminalTheme.reset} - Secure, Anonymous, Zero-Knowledge Terminal E2EE Chat
 
-          final data = jsonDecode(decrypted);
-          final sender = data['u'];
-          final msg = data['m'];
-          final time = data['t'] ?? _time;
+${TerminalTheme.bold}USAGE:${TerminalTheme.reset}
+  ipchat [options]
+  ipchat <command>
 
-          // Clear current typing line to render incoming message cleanly
-          stdout.write('\r\x1B[K');
-          print('$bold$friendCol@$sender$reset $dim[$time]$reset ❯ $msg');
-          _showPrompt();
-        } catch (e) {
-          // Ignore hijacked/corrupted packets
-        }
-      }
-    }
-  });
+${TerminalTheme.bold}COMMANDS:${TerminalTheme.reset}
+  ${TerminalTheme.bold}set-relay <host[:port]>${TerminalTheme.reset}    Register a self-hosted relay server permanently
+  ${TerminalTheme.bold}get-relay${TerminalTheme.reset}                 Show the currently configured relay server
+  ${TerminalTheme.bold}reset-relay${TerminalTheme.reset}               Reset to the official default relay server
 
-  // 5. Handle Outgoing Group Traffic
-  stdin.transform(utf8.decoder).transform(const LineSplitter()).listen((
-    String input,
-  ) {
-    final message = input.trim();
-    if (message.isNotEmpty && isConnected) {
-      // Move cursor up one line and clear it so our own message doesn't double-print uglily
-      stdout.write('\x1B[1A\x1B[K');
-      print('$bold$primary@You$reset $dim[$_time]$reset ❯ $message');
+${TerminalTheme.bold}OPTIONS:${TerminalTheme.reset}
+${parser.usage}
 
-      final payloadData = jsonEncode({
-        'u': username,
-        'm': message,
-        't': _time, // Send timestamp so friends see exactly when you sent it
-      });
+${TerminalTheme.bold}EXAMPLES:${TerminalTheme.reset}
+  # Start chat with default or configured relay:
+  ipchat
 
-      final iv = enc.IV.fromSecureRandom(16);
-      final encrypted = encrypter.encrypt(payloadData, iv: iv);
+  # Save a self-hosted relay permanently:
+  ipchat set-relay my-relay.example.com
+  ipchat set-relay 157.173.115.123:443
 
-      final transmission = iv.base64 + encrypted.base64;
-      socket.send(utf8.encode(transmission), InternetAddress(vpsIp), vpsPort);
-    }
-
-    if (isConnected) _showPrompt();
-  });
+  # Connect to a relay for just one session:
+  ipchat --relay 157.173.115.123 --port 443
+''');
 }

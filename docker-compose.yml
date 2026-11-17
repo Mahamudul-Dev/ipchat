@@ -1,0 +1,17 @@
+services:
+  ipchat-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/mahamudul-dev/ipchat-relay:latest
+    container_name: ipchat-relay
+    restart: unless-stopped
+    ports:
+      - "443:443/udp"
+    environment:
+      - PORT=443
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

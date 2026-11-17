@@ -1,0 +1,16 @@
+# Maintainer: Mahamudul-Dev <https://github.com/Mahamudul-Dev>
+pkgname=ipchat-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Secure, anonymous, zero-knowledge terminal E2EE group chat over UDP"
+arch=('x86_64')
+url="https://github.com/Mahamudul-Dev/ipchat"
+license=('MIT')
+provides=('ipchat')
+conflicts=('ipchat')
+source_x86_64=("https://github.com/Mahamudul-Dev/ipchat/releases/download/v${pkgver}/ipchat-linux-x64.tar.gz")
+sha256sums_x86_64=('SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/ipchat" "${pkgdir}/usr/bin/ipchat"
+}

@@ -1,12 +1,12 @@
 name: ipchat
-description: A sample command-line application with basic argument parsing.
-version: 0.0.1
-# repository: https://github.com/my_org/my_repo
+description: Secure, anonymous, zero-knowledge terminal E2EE group chat over UDP.
+version: 0.1.0
+repository: https://github.com/Mahamudul-Dev/ipchat
+homepage: https://github.com/Mahamudul-Dev/ipchat
 
 environment:
-  sdk: ^3.13.5
+  sdk: ^3.0.0
 
-# Add regular dependencies here.
 dependencies:
   args: ^2.7.0
   crypto: ^3.0.8
