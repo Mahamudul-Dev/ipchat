@@ -177,9 +177,9 @@ ${TerminalTheme.bold}EXAMPLES:${TerminalTheme.reset}
 
   # Save a self-hosted relay permanently:
   ipchat set-relay my-relay.example.com
-  ipchat set-relay 157.173.115.123:443
+  ipchat set-relay 198.51.100.1:443
 
   # Connect to a relay for just one session:
-  ipchat --relay 157.173.115.123 --port 443
+  ipchat --relay my-relay.example.com --port 443
 ''');
 }

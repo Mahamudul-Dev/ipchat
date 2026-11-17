@@ -31,7 +31,7 @@ class ChatClient {
 
   /// Starts the chat client, establishes the tunnel, and listens for terminal input.
   Future<void> start() async {
-    TerminalUI.printSystem('⚙ Resolving relay ($relayHost:$relayPort)...');
+    TerminalUI.printSystem('⚙ Establishing encrypted tunnel ($relayHost:$relayPort)...');
     InternetAddress relayAddress;
     try {
       relayAddress = await DnsResolver.resolve(relayHost);
@@ -48,10 +48,6 @@ class ChatClient {
     }
 
     _registerSignalHandler(relayAddress);
-
-    TerminalUI.printSystem(
-      '⚙ Connecting to relay at ${relayAddress.address}:$relayPort...',
-    );
 
     // 1. Connection Loop: Send [JOIN] <roomId> every second until acknowledged
     _connectTimer = Timer.periodic(const Duration(seconds: 1), (timer) {

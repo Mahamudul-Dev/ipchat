@@ -22,30 +22,55 @@
 
 ## 🚀 Client Installation
 
-### 1. Arch Linux / Manjaro (AUR)
+### 1. Linux & macOS (One-Line Terminal Installer)
+The fastest way to install on any Linux distribution (Arch, Manjaro, Ubuntu, Debian, Fedora, Mint) and macOS:
+
 ```bash
-yay -S ipchat-bin
-# or
-paru -S ipchat-bin
+curl -fsSL https://raw.githubusercontent.com/Mahamudul-Dev/ipchat/main/install.sh | bash
 ```
 
-### 2. Debian / Ubuntu (APT)
-Download the latest `.deb` package from [GitHub Releases](https://github.com/Mahamudul-Dev/ipchat/releases):
+---
+
+### 2. Windows (One-Line PowerShell Installer)
+Open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/Mahamudul-Dev/ipchat/main/install.ps1 | iex
+```
+*This automatically downloads `ipchat.exe`, places it in `%LOCALAPPDATA%\Programs\ipchat`, and configures your `PATH` so you can type `ipchat` anywhere.*
+
+*(Or manually download `ipchat-windows-x64.zip` from [Releases](https://github.com/Mahamudul-Dev/ipchat/releases), unzip, and run `ipchat.exe`).*
+
+---
+
+### 2. Arch Linux & Manjaro (Native Pacman)
+Install directly using Arch's `makepkg` (integrated with `pacman`):
+
+```bash
+git clone https://github.com/Mahamudul-Dev/ipchat.git
+cd ipchat/packaging/aur && makepkg -si
+```
+*(Also available on AUR via `yay -S ipchat-bin` once registration freeze is lifted).*
+
+---
+
+### 3. Debian & Ubuntu (.deb)
+Download and install the native `.deb` package from [GitHub Releases](https://github.com/Mahamudul-Dev/ipchat/releases):
+
 ```bash
 wget https://github.com/Mahamudul-Dev/ipchat/releases/latest/download/ipchat_0.1.0_amd64.deb
 sudo dpkg -i ipchat_0.1.0_amd64.deb
 ```
 
-### 3. Snap Store
-```bash
-sudo snap install ipchat
-```
+---
 
-### 4. Direct Binary Download (Linux / macOS / Windows)
-Grab pre-compiled standalone executables from the [Releases Page](https://github.com/Mahamudul-Dev/ipchat/releases):
+### 4. Direct Standalone Binaries (Zero Dependencies)
+Download ready-to-run executables from the [Releases Page](https://github.com/Mahamudul-Dev/ipchat/releases):
 * **Linux (x64 / arm64)**
 * **macOS (Apple Silicon / Intel)**
 * **Windows (x64)**
+
+---
 
 ### 5. Build From Source
 ```bash
